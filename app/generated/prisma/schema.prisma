@@ -1,0 +1,92 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  // Ye mongoDb mein ek special _Id create hota hai, aur isi id ko hum pane model ke andar bhi use karenge aur jo hum yeha per @....(isko bolte hai decorator)
+
+  // ! Aur pta hai hamne yeha per kuch fields ko optional diya hai pta hai kyu ,kyuki humne ye bhi to option rakha hai n ki aap google ya github se(Social Login) 👉 kar sekte hai to iss case mein iski need to padegi nhi humko to isiliye rakha hai aur yedi manually krte hai to iski need padegi isiliye optional rakha hai
+
+  name           String?
+  email          String    @unique
+  emailVerified  DateTime?
+  image          String?
+  hashedPassword String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // todo jitne bhi User chat mein conversation karenge un sabki Id ko hum store karenge yehi per mtlb iss field mein
+  conversationIds String[]       @db.ObjectId
+  conversations   Conversation[] @relation(fields: [conversationIds], references: [id])
+
+  // ? Aur jo bhi user MessagesSeen hoga wo saab yeha per Store honge mtlb iss field mein
+  seenMessagesIds String[]  @db.ObjectId
+  seenMessages    Message[] @relation("Seen", fields: [seenMessagesIds], references: [id])
+
+  accounts Account[]
+  messages Message[] @relation("SentMessages")
+}
+
+model Account {
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String  @db.ObjectId
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.String
+  //! Jaise hamne yeha per @db.String likha hai n to MongoDb mein isko aise hi likhte hai but yedi hum mongoDb ke alawa hum koi aur database use krte hai to uss case mein hum @db.text likhte hai ,but ye property available nhi hai isiliye humne @db.String likha hai
+
+  access_token  String? @db.String
+  expires_at    Int?
+  token_type    String?
+  scope         String?
+  id_token      String? @db.String
+  session_state String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId]) //* Aur pta hai hamne yeh per isiliye likha hai n kyuki provider aur providerAccoundId dono Uniqe ho isiliye likha hai yeha per
+}
+
+model Conversation {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt     DateTime @default(now())
+  lastMessageAt DateTime @default(now())
+  name          String?
+  isGroup       Boolean?
+
+  messagesId String[]  @db.ObjectId
+  messages   Message[]
+
+  userIds String[] @db.ObjectId
+  users   User[]   @relation(fields: [userIds], references: [id])
+}
+
+model Message {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  body      String?
+  image     String?
+  createdAt DateTime @default(now())
+
+  seenIds String[] @db.ObjectId
+  seen    User[]   @relation("Seen", fields: [seenIds], references: [id])
+
+  conversationId String       @db.ObjectId
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId String @db.ObjectId
+  sender   User   @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+}
