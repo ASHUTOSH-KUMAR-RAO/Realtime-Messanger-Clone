@@ -1,25 +1,19 @@
+// app/api/auth/[...nextauth]/route.ts
+import bcrypt from 'bcrypt';
+import NextAuth, { type AuthOptions } from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import GithubProvider from 'next-auth/providers/github';
+import GoogleProvider from 'next-auth/providers/google';
+import { PrismaAdapter } from "@next-auth/prisma-adapter";
+import prisma from "@/app/libs/prismaDb";
 
-import bcrypt from 'bcrypt'
-
-import NextAuth, { AuthOptions } from 'next-auth'
-
-import CredentialsProvider from 'next-auth/providers/credentials' //! Aur iske through hum custom email and password se bhi login kaar sekte hai aur sabse complex isko hi hota hai banana
-
-import GithubProvider from 'next-auth/providers/github' //? iske through hum Github se logine krte hai 
-import GoogleProvider from 'next-auth/providers/google' //todo aur Similary iske Google se login karte hai 
-
-
-import { PrismaAdapter } from "@next-auth/prisma-adapter"
-
-import prisma from "@/app/libs/prismaDb"
-
-export const authOptions: AuthOptions = {
+// Explicitly type authOptions
+const authOptions: AuthOptions = {
     adapter: PrismaAdapter(prisma),
     providers: [
         GithubProvider({
             clientId: process.env.GITHUB_ID as string,
             clientSecret: process.env.GITHUB_SECRET as string,
-
         }),
         GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID as string,
@@ -33,18 +27,15 @@ export const authOptions: AuthOptions = {
             },
             async authorize(credentials) {
                 if (!credentials?.email || !credentials?.password) {
-                    throw new Error("Invalid Credentials")
+                    throw new Error("Invalid credentials");
                 }
 
                 const user = await prisma.user.findUnique({
-                    where: {
-                        email: credentials.email
-                    }
-
+                    where: { email: credentials.email }
                 });
 
                 if (!user || !user?.hashedPassword) {
-                    throw new Error("Invalid Credentials")
+                    throw new Error("Invalid credentials");
                 }
 
                 const isCorrectPassword = await bcrypt.compare(
@@ -53,23 +44,21 @@ export const authOptions: AuthOptions = {
                 );
 
                 if (!isCorrectPassword) {
-                    throw new Error("Invalid Credentials")
+                    throw new Error("Invalid credentials");
                 }
                 return user;
             }
-
         })
     ],
-    debug: process.env.NODE_ENV === 'development', //! kabhi bhi hum auhtentication ya authorization ke case mein debug ko on krna chaiye, because isese bahut help milta hai ,aur bahut achi aur important information dekhne ko mill jata hai terminal mein 
-
+    debug: process.env.NODE_ENV === 'development',
     session: {
         strategy: 'jwt'
     },
     secret: process.env.NEXTAUTH_SECRET,
-
 };
 
-
+// Handler with proper typing
 const handler = NextAuth(authOptions);
 
+// Required exports for Next.js route handler
 export { handler as GET, handler as POST };
